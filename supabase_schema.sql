@@ -1,6 +1,7 @@
 -- Create a table for Actuals
 CREATE TABLE actuals (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(255),
     month VARCHAR(20),
     department VARCHAR(100),
     account VARCHAR(255),
@@ -11,6 +12,7 @@ CREATE TABLE actuals (
 -- Create a table for Budgets
 CREATE TABLE budgets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(255),
     month VARCHAR(20),
     department VARCHAR(100),
     account VARCHAR(255),

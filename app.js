@@ -295,38 +295,57 @@ function parseCSV(str) {
     return data;
 }
 
-fetchDataBtn.addEventListener('click', async () => {
-    document.querySelector('.upload-section').style.display = 'none';
-    fetchDataBtn.style.display = 'none'; analyzeBtn.style.display = 'none';
+window.initUserData = async () => {
+    if (!window.Clerk || !window.Clerk.user) return;
+    const userId = window.Clerk.user.id;
+    
     loader.classList.remove('hidden');
     try {
-        const { data: actData, error: actErr } = await _supabase.from('actuals').select('*');
+        const { data: actData, error: actErr } = await _supabase.from('actuals').select('*').eq('user_id', userId);
         if (actErr) throw actErr;
-        const { data: budData, error: budErr } = await _supabase.from('budgets').select('*');
+        const { data: budData, error: budErr } = await _supabase.from('budgets').select('*').eq('user_id', userId);
         if (budErr) throw budErr;
-        if (!actData.length && !budData.length) { alert('No data found.'); location.reload(); return; }
         
-        actualsData = actData.map(row => ({ Month: row.month, Department: row.department, Account: row.account, Actual: row.amount }));
-        budgetData = budData.map(row => ({ Month: row.month, Department: row.department, Account: row.account, Budget: row.amount }));
-        loadedFromDb = true;
-        
-        setTimeout(() => { 
-            populateFilters();
-            processData(); 
+        if (actData && actData.length > 0 || budData && budData.length > 0) {
+            actualsData = actData.map(row => ({ Month: row.month, Department: row.department, Account: row.account, Actual: row.amount }));
+            budgetData = budData.map(row => ({ Month: row.month, Department: row.department, Account: row.account, Budget: row.amount }));
+            loadedFromDb = true;
+            
+            document.querySelector('.upload-section').style.display = 'none';
+            fetchDataBtn.style.display = 'none'; 
+            analyzeBtn.style.display = 'none';
+            
+            setTimeout(() => { 
+                populateFilters();
+                processData(); 
+                loader.classList.add('hidden'); 
+                filtersPanel.classList.remove('hidden');
+                filtersPanel.style.display = 'block';
+                resultsSection.classList.remove('hidden'); 
+            }, 800);
+        } else {
+            // No data found, let user upload files normally
             loader.classList.add('hidden'); 
-            filtersPanel.classList.remove('hidden');
-            filtersPanel.style.display = 'block';
-            resultsSection.classList.remove('hidden'); 
-        }, 800);
-    } catch (error) { alert('Error: ' + error.message); location.reload(); }
+            fetchDataBtn.style.display = 'none'; 
+        }
+    } catch (error) { 
+        loader.classList.add('hidden');
+        console.warn('Initial data load failed or user_id column missing:', error.message);
+    }
+};
+
+fetchDataBtn.addEventListener('click', async () => {
+    // Left for backwards compatibility but shouldn't be used now as initUserData auto-runs
+    if (typeof window.initUserData === 'function') window.initUserData();
 });
 
 saveToDbBtn.addEventListener('click', async () => {
     if (!actualsData || !budgetData) return;
     saveToDbBtn.disabled = true; saveToDbBtn.textContent = 'Saving...';
+    const userId = window.Clerk.user ? window.Clerk.user.id : 'anonymous';
     try {
-        const act = actualsData.map(row => ({ month: row.Month||'FY', department: row.Department||'General', account: row.Account, amount: parseFloat(row.Actual)||0 })).filter(r=>r.account);
-        const bud = budgetData.map(row => ({ month: row.Month||'FY', department: row.Department||'General', account: row.Account, amount: parseFloat(row.Budget)||0 })).filter(r=>r.account);
+        const act = actualsData.map(row => ({ user_id: userId, month: row.Month||'FY', department: row.Department||'General', account: row.Account, amount: parseFloat(row.Actual)||0 })).filter(r=>r.account);
+        const bud = budgetData.map(row => ({ user_id: userId, month: row.Month||'FY', department: row.Department||'General', account: row.Account, amount: parseFloat(row.Budget)||0 })).filter(r=>r.account);
         if(act.length) { const { error: e1 } = await _supabase.from('actuals').insert(act); if (e1) throw e1; }
         if(bud.length) { const { error: e2 } = await _supabase.from('budgets').insert(bud); if (e2) throw e2; }
         saveToDbBtn.textContent = 'Saved ✔️'; saveToDbBtn.style.color = 'white'; saveToDbBtn.style.background = '#10b981';

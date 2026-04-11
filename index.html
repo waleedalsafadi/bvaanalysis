@@ -186,6 +186,11 @@
           authContainer.style.display = 'none';
           appContainer.style.display = 'block';
           window.Clerk.mountUserButton(document.getElementById('user-btn-container'));
+          
+          // Auto-load data if available
+          if (typeof window.initUserData === 'function') {
+              window.initUserData();
+          }
         } else {
           // User is NOT signed in
           appContainer.style.display = 'none';
