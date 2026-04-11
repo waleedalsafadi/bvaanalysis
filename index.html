@@ -189,8 +189,8 @@
         } else {
           // User is NOT signed in
           appContainer.style.display = 'none';
-          authContainer.style.display = 'flex';
-          window.Clerk.mountSignIn(authContainer);
+          authContainer.style.display = 'none';
+          window.Clerk.openSignIn();
         }
       });
       document.body.appendChild(script);
