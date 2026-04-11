@@ -169,10 +169,6 @@
       
       script.addEventListener('load', async function () {
         await window.Clerk.load({
-            signInUrl: '/',
-            signUpUrl: '/',
-            afterSignInUrl: '/',
-            afterSignUpUrl: '/',
             appearance: {
                 variables: {
                     colorPrimary: '#3b82f6',
@@ -199,9 +195,12 @@
           // User is NOT signed in
           appContainer.style.display = 'none';
           authContainer.style.display = 'none';
-          window.Clerk.redirectToSignIn({ 
-            returnBackUrl: window.location.href 
-          });
+          
+          // Force manual redirect to Hosted UI to bypass 3rd party cookie blocks
+          const signInUrl = window.Clerk.buildSignInUrl({ redirectUrl: window.location.origin });
+          if (window.location.href !== signInUrl && !window.location.href.includes('__clerk')) {
+              window.location.href = signInUrl;
+          }
         }
       });
       document.body.appendChild(script);
