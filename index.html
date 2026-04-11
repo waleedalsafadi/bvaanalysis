@@ -169,6 +169,10 @@
       
       script.addEventListener('load', async function () {
         await window.Clerk.load({
+            signInUrl: '/',
+            signUpUrl: '/',
+            afterSignInUrl: '/',
+            afterSignUpUrl: '/',
             appearance: {
                 variables: {
                     colorPrimary: '#3b82f6',
