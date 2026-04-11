@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Budget vs Actuals Analyzer</title>
+    <meta name="description" content="An IPO-grade financial analysis dashboard for comparing Budget vs Actuals.">
+    <!-- Google Fonts including Arabic support (Cairo or Tajawal) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- SheetJS to support parsing Excel .xlsx/.xls files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="lang-toggle-container" style="display: flex; gap: 15px; align-items: center;">
+        <div id="user-btn-container"></div>
+        <button id="langToggleBtn" class="lang-btn">عربي / EN</button>
+    </div>
+
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- Auth Container -->
+    <div id="authContainer" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; position: relative; z-index: 10;">
+        <!-- Clerk Sign-in will be mounted here -->
+    </div>
+
+    <!-- Main App Container -->
+    <div class="container" id="appContainer" style="display: none;">
+        <header>
+            <h1 data-i18n="title">Financial Variance Intelligence</h1>
+            <p data-i18n="subtitle">Upload your Actuals and Budget data to generate an IPO-grade analysis</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <!-- Actuals Upload Box -->
+                <div class="upload-box" id="actualsBox">
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h2 data-i18n="uploadActuals">Upload Actuals</h2>
+                    <p class="subtitle" data-i18n="dragDrop">Drag & drop your CSV or Excel file here</p>
+                    <input type="file" id="actualsFile" accept=".csv, .xlsx, .xls" class="file-input">
+                    <div class="file-name" id="actualsFileName"></div>
+                </div>
+
+                <!-- Budget Upload Box -->
+                <div class="upload-box" id="budgetBox">
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h2 data-i18n="uploadBudget">Upload Budget</h2>
+                    <p class="subtitle" data-i18n="dragDrop">Drag & drop your CSV or Excel file here</p>
+                    <input type="file" id="budgetFile" accept=".csv, .xlsx, .xls" class="file-input">
+                    <div class="file-name" id="budgetFileName"></div>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <button id="analyzeBtn" class="primary-btn" disabled data-i18n="genReportBtn">Generate Report</button>
+                <button id="fetchDataBtn" class="secondary-btn fetch-btn" data-i18n="loadDbBtn">Load from Database</button>
+            </div>
+
+            <!-- Loader -->
+            <div id="loader" class="loader-container hidden">
+                <div class="spinner"></div>
+                <p data-i18n="analyzing">Analyzing financials...</p>
+            </div>
+
+            <!-- Global Filters Panel -->
+            <div id="filtersPanel" class="glass-panel hidden" style="margin-bottom: 24px; padding: 20px; display: none;">
+                <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px;">
+                        <label for="deptFilter" style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);" data-i18n="lblDept">Department Filter:</label>
+                        <select id="deptFilter" style="padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; font-size: 1rem; cursor: pointer;">
+                            <option value="All" data-i18n="optAllDept">All Departments</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px;">
+                        <label for="periodFilter" style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);" data-i18n="lblPeriod">Time Period:</label>
+                        <select id="periodFilter" style="padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; font-size: 1rem; cursor: pointer;">
+                            <option value="All" data-i18n="optFullYear">Full Year (YTD)</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px;">
+                        <label for="leadershipModeFilter" style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);" data-i18n="lblLeadership">Audience View:</label>
+                        <select id="leadershipModeFilter" style="padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; font-size: 1rem; cursor: pointer;">
+                            <option value="CFO" data-i18n="optCFO">CFO</option>
+                            <option value="Board" data-i18n="optBoard">Board of Directors</option>
+                            <option value="DeptHead" data-i18n="optDeptHead">Department Head</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section hidden">
+                
+                <div id="executiveSummary" class="glass-panel" style="margin-bottom: 24px; padding: 24px; display: none;">
+                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        <span data-i18n="aiSummary">AI Executive Summary</span>
+                    </h2>
+                    <ul id="execSummaryList" class="exec-ul">
+                        <!-- Injected via JS -->
+                    </ul>
+                </div>
+                
+                <div class="summary-cards" id="summaryCards">
+                    <!-- Cards will be injected via JS -->
+                </div>
+                
+                <div class="report-table-container glass-panel">
+                    <div class="table-header">
+                        <h2 data-i18n="reportTitle">Full Year Variance Report</h2>
+                        <div class="table-actions">
+                            <button id="saveToDbBtn" class="secondary-btn save-btn" data-i18n="saveDbBtn">Save to Database</button>
+                            <button id="exportCsvBtn" class="secondary-btn" data-i18n="exportCsvBtn">Export CSV</button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="reportTable">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="thCategory">P&L Category</th>
+                                    <th data-i18n="thDep">Department</th>
+                                    <th data-i18n="thAcc">Account</th>
+                                    <th class="number-align" data-i18n="thBud">Budget</th>
+                                    <th class="number-align" data-i18n="thAct">Actual</th>
+                                    <th class="number-align" data-i18n="thDvar">$ Variance</th>
+                                    <th class="number-align" data-i18n="thPvar">% Variance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTableBody">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    
+    <!-- Clerk JS Auth Logic -->
+    <script>
+      // ⚠️ مفتاح Clerk الخاص بك
+      const clerkPubKey = 'pk_test_Y2FzdWFsLWVlbC01My5jbGVyay5hY2NvdW50cy5kZXYk'; 
+      
+      const script = document.createElement('script');
+      script.setAttribute('data-clerk-publishable-key', clerkPubKey);
+      script.async = true;
+      script.src = `https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js`;
+      script.crossOrigin = 'anonymous';
+      
+      script.addEventListener('load', async function () {
+        await window.Clerk.load({
+            appearance: {
+                variables: {
+                    colorPrimary: '#3b82f6',
+                    colorBackground: '#1e293b',
+                    colorText: 'white',
+                }
+            }
+        });
+
+        const authContainer = document.getElementById('authContainer');
+        const appContainer = document.getElementById('appContainer');
+
+        if (window.Clerk.user) {
+          // User is signed in
+          authContainer.style.display = 'none';
+          appContainer.style.display = 'block';
+          window.Clerk.mountUserButton(document.getElementById('user-btn-container'));
+        } else {
+          // User is NOT signed in
+          appContainer.style.display = 'none';
+          authContainer.style.display = 'flex';
+          window.Clerk.mountSignIn(authContainer);
+        }
+      });
+      document.body.appendChild(script);
+    </script>
+</body>
+</html>
