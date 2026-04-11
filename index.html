@@ -190,7 +190,7 @@
           // User is NOT signed in
           appContainer.style.display = 'none';
           authContainer.style.display = 'none';
-          window.Clerk.openSignIn();
+          window.Clerk.redirectToSignIn();
         }
       });
       document.body.appendChild(script);
